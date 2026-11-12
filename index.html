@@ -49,8 +49,10 @@
     .nav-cta { padding: 10px 17px; font-size: .86rem; }
     .menu-toggle { display: none; border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 11px; width: 43px; height: 43px; font-size: 1.35rem; cursor: pointer; }
     .hero { position: relative; min-height: 650px; display: flex; align-items: center; color: white; isolation: isolate; background: #102e61; overflow: hidden; }
-    .hero-video { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .hero::before { content: ""; position: absolute; z-index: -1; inset: 0; background: linear-gradient(90deg, rgba(7,25,59,.91) 0%, rgba(12,43,94,.78) 48%, rgba(13,47,99,.42) 100%); }
+    /* Keep the video above the hero background, with text and overlay above it. */
+    .hero-video { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; background: #102e61; }
+    .hero::before { content: ""; position: absolute; z-index: 1; inset: 0; pointer-events: none; background: linear-gradient(90deg, rgba(7,25,59,.91) 0%, rgba(12,43,94,.78) 48%, rgba(13,47,99,.42) 100%); }
+    .hero > .container { position: relative; z-index: 2; }
     .hero-content { padding: 100px 0 110px; max-width: 760px; }
     .hero-kicker { display: inline-flex; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid rgba(255,255,255,.27); border-radius: 999px; background: rgba(255,255,255,.1); color: #e5edff; font-size: .78rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
     .hero h1 { margin-top: 24px; font-size: clamp(2.7rem, 6.2vw, 5.2rem); line-height: 1.02; letter-spacing: -.055em; max-width: 800px; }
@@ -93,12 +95,14 @@
     .client-strip .eyebrow { color: #a9c8ff; }
     .client-strip h2 { font-size: clamp(1.7rem, 3vw, 2.25rem); margin-top: 9px; }
     .client-strip p { color: #d0def4; margin-top: 8px; font-size: .92rem; }
-    .logo-window { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
-    .logo-track { display: flex; width: max-content; gap: 17px; animation: marquee 28s linear infinite; }
-    .logo-track:hover { animation-play-state: paused; }
-    .logo-pill { min-width: 190px; width: 190px; height: 88px; display: grid; place-items: center; padding: 12px 18px; border: 1px solid rgba(255,255,255,.2); border-radius: 13px; background: rgba(255,255,255,.96); overflow: hidden; }
+    .logo-window { width: 100%; overflow: hidden; }
+    .logo-track { display: flex; width: max-content; gap: 0; will-change: transform; animation: marquee 26s linear infinite; }
+    .logo-window:hover .logo-track { animation-play-state: paused; }
+    .logo-group { display: flex; align-items: center; flex: 0 0 auto; gap: 17px; padding-right: 17px; }
+    .logo-pill { flex: 0 0 190px; width: 190px; height: 88px; display: grid; place-items: center; padding: 12px 18px; border: 1px solid rgba(255,255,255,.2); border-radius: 13px; background: rgba(255,255,255,.96); overflow: hidden; }
     .logo-pill img { display: block; max-width: 100%; max-height: 62px; width: auto; height: auto; object-fit: contain; }
     .logo-pill .logo-fallback { color: #18345f; font-size: .9rem; font-weight: 800; letter-spacing: .03em; }
+    /* Two equal logo groups make the -50% reset seamless. */
     @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
     .cta-band { padding: 65px 0; background: linear-gradient(120deg, #1749a2, #103575); color: white; }
     .cta-inner { display: flex; justify-content: space-between; align-items: center; gap: 25px; }
@@ -162,7 +166,8 @@
       .service-grid, .industry-grid, .steps, .form-row { grid-template-columns: 1fr; }
       .contact-form { padding: 21px 17px; }
       .footer-bottom { flex-direction: column; }
-      .logo-pill { min-width: 155px; width: 155px; height: 78px; }
+      .logo-group { gap: 14px; padding-right: 14px; }
+      .logo-pill { flex-basis: 155px; min-width: 155px; width: 155px; height: 78px; }
       .logo-pill img { max-height: 54px; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -193,8 +198,9 @@
   <main>
     <section class="hero" id="home">
       <!-- Place Recruitment.mp4 in the same folder as this HTML file. -->
-      <video class="hero-video" autoplay muted loop playsinline preload="metadata" poster="">
-        <source src="Recruitment.mp4" type="video/mp4">
+      <video class="hero-video" autoplay muted loop playsinline webkit-playsinline preload="auto" aria-hidden="true">
+        <source src="./Recruitment.mp4" type="video/mp4">
+        Your browser does not support HTML5 video.
       </video>
       <div class="container">
         <div class="hero-content">
@@ -444,9 +450,27 @@
       submitButton.textContent = "Submit Enquiry →";
     });
 
-    // Respect reduced-motion preferences by pausing the decorative hero video.
+    // Start the decorative hero video where browser autoplay policy permits.
+    const heroVideo = document.querySelector(".hero-video");
+    if (heroVideo) {
+      heroVideo.muted = true;
+      const startHeroVideo = () => {
+        const playAttempt = heroVideo.play();
+        if (playAttempt && typeof playAttempt.catch === "function") {
+          playAttempt.catch(() => {
+            // The blue hero background remains as a graceful fallback.
+          });
+        }
+      };
+      heroVideo.addEventListener("canplay", startHeroVideo, { once: true });
+      heroVideo.addEventListener("error", () => {
+        console.warn("Hero video could not be loaded. Check that Recruitment.mp4 is in the deployed site root and encoded as MP4/H.264.");
+      });
+      if (heroVideo.readyState >= 3) startHeroVideo();
+    }
+
+    // Respect reduced-motion preferences by pausing decorative motion.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const heroVideo = document.querySelector(".hero-video");
       if (heroVideo) heroVideo.pause();
     }
   </script>
